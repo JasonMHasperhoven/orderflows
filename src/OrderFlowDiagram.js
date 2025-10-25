@@ -7,7 +7,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   const blue = "#61dafb";
   const green = "#24C1B0";
   const red = "#FF5F7F";
-  const animationTicks = 1000;
+  const animationTicks = 300;
   const textsPadding = 20;
   const xStart = textsPadding;
   const xEnd = width - textsPadding;
@@ -19,25 +19,84 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     preventDefault: false,
   };
   const flowGap = 1;
-  // const blockHeightPercentage = 33; // 33% of the height
+  const blockWidth = 20;
+  const buySellBlocksGapPercentage = 20;
   // #endregion
 
   // #region instance vars
   let layer;
   let ordersBlock;
   let buyOrdersBlock;
+  let buyOrdersBlockText;
   let sellOrdersBlock;
+  let sellOrdersBlockText;
   let buyFlow;
   let sellFlow;
+
   // scales so that we can render in percentages from 0 to 100
   const xScale = scaleLinear().domain([0, 100]).range([xStart, xEnd]);
+  console.log("TCL: OrderFlowDiagram -> xEnd", xEnd);
+  console.log("TCL: OrderFlowDiagram -> xStart", xStart);
   const yScale = scaleLinear().domain([0, 100]).range([0, height]);
+
+  // scale the volume to the size of the block
   const sizeScale = scaleLinear().domain([1, 2500]).range([1, 50]);
 
   const orders = [];
   let isRunning = true;
-  let buySellRatio = 0.5;
+  let sellBuyRatio = 0.5;
   // #endregion
+
+  function curvePath(x1, y1, x2, y2, curvature = 0.5) {
+    const dx = x2 - x1;
+    const controlX1 = x1 + dx * curvature;
+    const controlX2 = x2 - dx * curvature;
+    return `C${controlX1},${y1} ${controlX2},${y2} ${x2},${y2}`;
+  }
+
+  function createFlowPath(side = "buy") {
+    const startBlock = ordersBlock;
+    const endBlock = side === "buy" ? buyOrdersBlock : sellOrdersBlock;
+
+    const startBlockY =
+      side === "sell"
+        ? startBlock.y()
+        : startBlock.y() + startBlock.height() * sellBuyRatio;
+
+    const topMargin = side === "sell" ? 0 : flowGap;
+    const bottomMargin = side === "sell" ? -flowGap : 0;
+
+    const data = [
+      `M${startBlock.x() + startBlock.width()},${startBlockY + topMargin}`,
+      `L${xScale(xCurvePercentageStart)},${startBlockY + topMargin}`,
+      curvePath(
+        xScale(xCurvePercentageStart),
+        startBlockY + topMargin,
+        xScale(xCurvePercentageEnd),
+        endBlock.y()
+      ),
+      `L${endBlock.x()},${endBlock.y()}`,
+      `L${endBlock.x()},${endBlock.y() + endBlock.height()}`,
+      `L${xScale(xCurvePercentageEnd)},${endBlock.y() + endBlock.height()}`,
+      curvePath(
+        xScale(xCurvePercentageEnd),
+        endBlock.y() + endBlock.height(),
+        xScale(xCurvePercentageStart),
+        startBlockY +
+          startBlock.height() *
+            (side === "sell" ? sellBuyRatio : 1 - sellBuyRatio) +
+          bottomMargin
+      ),
+      `L${startBlock.x() + startBlock.width()},${
+        startBlockY +
+        startBlock.height() *
+          (side === "sell" ? sellBuyRatio : 1 - sellBuyRatio) +
+        bottomMargin
+      }`,
+    ].join(" ");
+
+    return data;
+  }
 
   function init() {
     const stage = new Stage({
@@ -64,38 +123,23 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
 
     ordersBlock = new Rect({
       x: xScale(0),
-      y: yScale(33),
-      width: xScale(1),
-      height: yScale(33),
+      y: yScale(25),
+      width: blockWidth,
+      height: yScale(50),
       fill: blue,
       ...performanceAttrs,
     });
 
-    const buyOrdersBlockText = new Text({
-      x: 0,
+    sellOrdersBlock = new Rect({
+      x: xScale(100) - blockWidth,
       y: 0,
-      text: "Buys",
-      fontSize: 14,
-      fill: "#fff",
+      width: blockWidth,
+      height: yScale(100 - buySellBlocksGapPercentage) * sellBuyRatio,
+      fill: red,
       ...performanceAttrs,
     });
 
-    buyOrdersBlockText.rotate(90);
-    buyOrdersBlockText.setPosition({
-      x: width,
-      y: yScale(33) / 2 - buyOrdersBlockText.getTextWidth() / 2,
-    });
-
-    buyOrdersBlock = new Rect({
-      x: xScale(95),
-      y: 0,
-      width: xScale(1),
-      height: yScale(50) * buySellRatio,
-      fill: green,
-      ...performanceAttrs,
-    });
-
-    const sellOrdersBlockText = new Text({
+    sellOrdersBlockText = new Text({
       x: 0,
       y: 0,
       text: "Sells",
@@ -107,78 +151,51 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     sellOrdersBlockText.rotate(90);
     sellOrdersBlockText.setPosition({
       x: width,
-      y: yScale(67) + yScale(33) / 2 - sellOrdersBlockText.getTextWidth() / 2,
+      y: sellOrdersBlock.height() / 2 - sellOrdersBlockText.getTextWidth() / 2,
     });
 
-    sellOrdersBlock = new Rect({
-      x: xScale(95),
-      y: yScale(67),
-      width: xScale(1),
-      height: yScale(50) * buySellRatio,
-      fill: red,
+    const buyBlockHeight =
+      yScale(100 - buySellBlocksGapPercentage) * sellBuyRatio;
+    buyOrdersBlock = new Rect({
+      x: xScale(100) - blockWidth,
+      y: yScale(100) - buyBlockHeight,
+      width: blockWidth,
+      height: buyBlockHeight,
+      fill: green,
       ...performanceAttrs,
     });
 
-    function createFlowPath(side = "buy") {
-      const startBlock = ordersBlock;
-      const endBlock = side === "buy" ? buyOrdersBlock : sellOrdersBlock;
+    buyOrdersBlockText = new Text({
+      x: 0,
+      y: 0,
+      text: "Buys",
+      fontSize: 14,
+      fill: "#fff",
+      ...performanceAttrs,
+    });
 
-      const startBlockY =
-        side === "buy"
-          ? startBlock.y()
-          : startBlock.y() + startBlock.height() * buySellRatio;
+    buyOrdersBlockText.rotate(90);
+    buyOrdersBlockText.setPosition({
+      x: width,
+      y:
+        buyOrdersBlock.y() +
+        buyOrdersBlock.height() / 2 -
+        buyOrdersBlockText.getTextWidth() / 2,
+    });
 
-      const topMargin = side === "buy" ? 0 : 1;
-      const bottomMargin = side === "buy" ? -1 : 0;
+    sellFlow = new Path({
+      data: createFlowPath("sell"),
+      fill: "#fff",
+      opacity: 0.2,
+      ...performanceAttrs,
+    });
 
-      function curvePath(x1, y1, x2, y2, curvature = 0.5) {
-        const dx = x2 - x1;
-        const controlX1 = x1 + dx * curvature;
-        const controlX2 = x2 - dx * curvature;
-        return `C${controlX1},${y1} ${controlX2},${y2} ${x2},${y2}`;
-      }
-
-      const data = [
-        `M${startBlock.x() + startBlock.width()},${startBlockY + topMargin}`,
-        `L${xScale(xCurvePercentageStart)},${startBlockY + topMargin}`,
-        curvePath(
-          xScale(xCurvePercentageStart),
-          startBlockY + topMargin,
-          xScale(xCurvePercentageEnd),
-          endBlock.y()
-        ),
-        `L${endBlock.x()},${endBlock.y()}`,
-        `L${endBlock.x()},${endBlock.y() + endBlock.height()}`,
-        `L${xScale(xCurvePercentageEnd)},${endBlock.y() + endBlock.height()}`,
-        curvePath(
-          xScale(xCurvePercentageEnd),
-          endBlock.y() + endBlock.height(),
-          xScale(xCurvePercentageStart),
-          startBlockY +
-            startBlock.height() *
-              (side === "buy" ? buySellRatio : 1 - buySellRatio) +
-            bottomMargin
-        ),
-        `L${startBlock.x() + startBlock.width()},${
-          startBlockY +
-          startBlock.height() *
-            (side === "buy" ? buySellRatio : 1 - buySellRatio) +
-          bottomMargin
-        }`,
-      ].join(" ");
-
-      return new Path({
-        data: data,
-        fill: "#fff",
-        opacity: 0.2,
-        ...performanceAttrs,
-      });
-    }
-
-    buyFlow = createFlowPath("buy");
-    layer.add(buyFlow);
-    sellFlow = createFlowPath("sell");
-    layer.add(sellFlow);
+    buyFlow = new Path({
+      data: createFlowPath("buy"),
+      fill: "#fff",
+      opacity: 0.2,
+      ...performanceAttrs,
+    });
 
     layer.add(ordersBlockText);
     layer.add(ordersBlock);
@@ -186,10 +203,11 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     layer.add(buyOrdersBlock);
     layer.add(sellOrdersBlockText);
     layer.add(sellOrdersBlock);
+    layer.add(buyFlow);
+    layer.add(sellFlow);
     stage.add(layer);
   }
 
-  // Define the path calculation function inside init to access block variables
   function getOrderCoordinatesByProgress(order) {
     const startBlock = ordersBlock;
     const endBlock = order.side === "buy" ? buyOrdersBlock : sellOrdersBlock;
@@ -198,7 +216,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     const startBlockY =
       order.side === "buy"
         ? startBlock.y()
-        : startBlock.y() + startBlock.height() * buySellRatio;
+        : startBlock.y() + startBlock.height() * sellBuyRatio;
 
     const startY = startBlockY + (startBlock.height() * order.yPosition) / 100;
 
@@ -220,7 +238,12 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       const controlY2 =
         endBlock.y() + (endBlock.height() * order.yPosition) / 100;
 
-      const t = order.progress;
+      // Normalize progress to the curve segment (0 to 1 within the curve)
+      const curveStart = xCurvePercentageStart / 100; // e.g., 0.2
+      const curveEnd = xCurvePercentageEnd / 100; // e.g., 0.8
+      const curveLength = curveEnd - curveStart; // e.g., 0.6
+
+      const t = (order.progress - curveStart) / curveLength; // This gives 0 to 1
       const oneMinusT = 1 - t;
 
       const x = order.xScale(order.progress * 100);
@@ -235,68 +258,106 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     }
   }
 
+  function initializeOrderNode(order) {
+    order.animationState = "animating";
+    order.progress = 1 / animationTicks;
+
+    // create random y position within the flow
+    order.yPosition = Math.floor(Math.random() * 100);
+
+    order.node = new Rect({
+      x: xScale(0),
+      y:
+        order.side === "buy"
+          ? ordersBlock.y() +
+            (ordersBlock.height() * sellBuyRatio * order.yPosition) / 100
+          : ordersBlock.y() +
+            ordersBlock.height() * sellBuyRatio +
+            (ordersBlock.height() * (1 - sellBuyRatio) * order.yPosition) / 100,
+      width: sizeScale(order.volume),
+      height: 8,
+      fill: order.side === "buy" ? green : red,
+      ...performanceAttrs,
+    });
+
+    order.xScale = scaleLinear()
+      .domain([0, 100])
+      .range([xScale(0), xScale(100) - order.node.width()]);
+
+    layer.add(order.node);
+  }
+
+  function animateOrderNode(order) {
+    order.progress += 1 / animationTicks;
+    if (order.progress >= 1) {
+      order.progress = 1;
+      order.animationState = "completing";
+    }
+
+    const pos = getOrderCoordinatesByProgress(order);
+    order.node.setPosition(pos);
+  }
+
+  function completeOrderNode(order) {
+    order.animationState = "completed";
+    order.node.destroy();
+    delete order.node;
+  }
+
+  function updateBlocksVolume(buyVolume, sellVolume) {
+    // buyOrdersBlock.to({
+    //   height: yScale(100 - buySellBlocksGapPercentage) * sellBuyRatio,
+    //   duration: 0.1,
+    //   easing: Easings.EaseInOut,
+    // });
+
+    sellOrdersBlock.height(
+      yScale(100 - buySellBlocksGapPercentage) * sellBuyRatio
+    );
+
+    sellOrdersBlockText.text(`Sells: ${sellVolume}`);
+    sellOrdersBlockText.y(
+      Math.max(
+        0,
+        sellOrdersBlock.y() +
+          sellOrdersBlock.height() / 2 -
+          sellOrdersBlockText.getTextWidth() / 2
+      )
+    );
+
+    const buyBlockHeight =
+      yScale(100 - buySellBlocksGapPercentage) * (1 - sellBuyRatio);
+    buyOrdersBlock.y(yScale(100) - buyBlockHeight);
+    buyOrdersBlock.height(buyBlockHeight);
+    buyOrdersBlockText.text(`Buys: ${buyVolume}`);
+    buyOrdersBlockText.y(
+      Math.min(
+        height,
+        buyOrdersBlock.y() +
+          buyOrdersBlock.height() / 2 -
+          buyOrdersBlockText.getTextWidth() / 2
+      )
+    );
+
+    buyFlow.data(createFlowPath("buy"));
+    sellFlow.data(createFlowPath("sell"));
+  }
+
   function renderNextTick() {
     let buyVolume = 0;
     let sellVolume = 0;
 
     orders.forEach((order) => {
       if (order.animationState === "entering") {
-        order.animationState = "animating";
-        order.progress = 1 / animationTicks;
-        order.yPosition = Math.floor(Math.random() * 100);
-
-        order.node = new Rect({
-          x: xScale(0),
-          y:
-            order.side === "buy"
-              ? ordersBlock.y() +
-                (ordersBlock.height() * buySellRatio * order.yPosition) / 100
-              : ordersBlock.y() +
-                ordersBlock.height() * buySellRatio +
-                (ordersBlock.height() * (1 - buySellRatio) * order.yPosition) /
-                  100,
-          width: sizeScale(order.volume),
-          height: 8,
-          fill: order.side === "buy" ? green : red,
-          ...performanceAttrs,
-        });
-
-        order.xScale = scaleLinear()
-          .domain([0, 100])
-          .range([xScale(0), xScale(100) - order.node.width()]);
-
-        layer.add(order.node);
-
-        // order.tween = new Tween({
-        //   node: order.node,
-        //   duration: 500,
-        //   fill: order.side === "buy" ? green : red,
-        //   easing: Easings.Linear,
-        // });
+        initializeOrderNode(order);
       }
 
       if (order.animationState === "animating") {
-        order.progress += 1 / animationTicks;
-        if (order.progress >= 1) {
-          order.progress = 1;
-          order.animationState = "completing";
-        }
-
-        // Update position along the flow path
-        const pos = getOrderCoordinatesByProgress(order);
-        order.node.setPosition(pos);
-        // layer.batchDraw();
-
-        // Update color animation
-        // order.tween.seek(order.progress);
+        animateOrderNode(order);
       }
 
       if (order.animationState === "completing") {
-        order.animationState = "completed";
-        order.node.destroy();
-        // order.tween.destroy();
-        delete order.node;
-        // delete order.tween;
+        completeOrderNode(order);
       }
 
       if (order.side === "buy") {
@@ -306,11 +367,17 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       }
     });
 
-    buySellRatio =
-      buyVolume + sellVolume > 0 ? buyVolume / (buyVolume + sellVolume) : 0.5;
+    sellBuyRatio = Math.min(
+      Math.max(
+        buyVolume + sellVolume > 0
+          ? sellVolume / (buyVolume + sellVolume)
+          : 0.5,
+        0.1
+      ),
+      0.9
+    );
 
-    // buyOrdersBlock.setHeight(yScale(67) * buySellRatio);
-    // sellOrdersBlock.setHeight(yScale(67) * (1 - buySellRatio));
+    updateBlocksVolume(buyVolume, sellVolume);
 
     layer.draw();
   }
