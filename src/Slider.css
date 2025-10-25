@@ -1,0 +1,36 @@
+.Slider {
+  padding: 0 20px;
+}
+
+.Slider-track {
+  position: relative;
+  height: 20px;
+  width: 100%;
+  border-radius: 4px;
+  background-color: #54565c;
+}
+
+.Slider-track-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 20px;
+  background-color: #568595;
+  border-radius: 4px;
+}
+
+.Slider-track-thumb {
+  position: absolute;
+  top: 0;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 0;
+  background-color: #fff;
+  cursor: ew-resize;
+
+  &:hover {
+    background-color: #82d7f7;
+  }
+}

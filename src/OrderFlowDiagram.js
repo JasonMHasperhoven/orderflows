@@ -44,6 +44,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   const orders = [];
   let isRunning = true;
   let sellBuyRatio = 0.5;
+  let historyPercentage = 100;
   // #endregion
 
   function curvePath(x1, y1, x2, y2, curvature = 0.5) {
@@ -333,7 +334,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     buyOrdersBlockText.text(`Buys: ${buyVolume}`);
     buyOrdersBlockText.y(
       Math.min(
-        height,
+        height - buyOrdersBlockText.getTextWidth(),
         buyOrdersBlock.y() +
           buyOrdersBlock.height() / 2 -
           buyOrdersBlockText.getTextWidth() / 2
@@ -348,7 +349,22 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     let buyVolume = 0;
     let sellVolume = 0;
 
+    let timestampFilter;
+    if (orders.length > 0 && historyPercentage < 100) {
+      const range = [
+        Math.ceil(orders[orders.length - 1].timestamp),
+        Math.floor(orders[0].timestamp),
+      ];
+      const timestampScale = scaleLinear().domain([0, 100]).range(range);
+
+      timestampFilter = timestampScale(historyPercentage);
+    }
+
     orders.forEach((order) => {
+      if (timestampFilter && order.timestamp <= timestampFilter) {
+        return;
+      }
+
       if (order.animationState === "entering") {
         initializeOrderNode(order);
       }
@@ -393,19 +409,11 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
 
   return {
     init,
-    /**
-     * add order to the diagram
-     * @param {{
-     *   id: String,
-     *   side: "buy" | "sell",
-     *   volume: number,
-     *   timestamp: number,
-     *   animationState: "entering" | "animating" | "completed",
-     *   progress: number,
-     * }} order
-     */
     addOrder: (order) => {
       orders.push({ ...order });
+    },
+    setHistoryPercentage: (value) => {
+      historyPercentage = value;
     },
     run: () => {
       isRunning = true;

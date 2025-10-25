@@ -3,11 +3,13 @@ import { useOrderStream } from "./useOrderStream";
 import { Button } from "./Button";
 import "./Canvas.css";
 import { OrderFlowDiagram } from "./OrderFlowDiagram";
+import { Slider } from "./Slider";
 
 export const Canvas = () => {
   const id = useId();
   const orderFlowDiagram = useRef(new OrderFlowDiagram(id));
   const [isInitialized, setIsInitialized] = useState(false);
+  const [historyPercentage, setHistoryPercentage] = useState(100);
 
   const { isStreaming, pauseStream, resumeStream } = useOrderStream({
     onOrderReceived: orderFlowDiagram.current.addOrder,
@@ -28,6 +30,10 @@ export const Canvas = () => {
     }
   }, [isInitialized, isStreaming]);
 
+  useEffect(() => {
+    orderFlowDiagram.current.setHistoryPercentage(historyPercentage);
+  }, [historyPercentage]);
+
   return (
     <div>
       <div className="Canvas-container">
@@ -35,7 +41,8 @@ export const Canvas = () => {
           {isStreaming ? "Pause Streaming" : "Start Streaming"}
         </Button>
       </div>
-      <div id={id} />
+      <div id={id} className="Canvas" />
+      <Slider value={historyPercentage} onInput={setHistoryPercentage} />
     </div>
   );
 };
