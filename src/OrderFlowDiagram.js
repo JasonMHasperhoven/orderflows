@@ -18,6 +18,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     listening: false,
     preventDefault: false,
   };
+  const flowGap = 1;
   // const blockHeightPercentage = 33; // 33% of the height
   // #endregion
 
@@ -26,6 +27,8 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   let ordersBlock;
   let buyOrdersBlock;
   let sellOrdersBlock;
+  let buyFlow;
+  let sellFlow;
   // scales so that we can render in percentages from 0 to 100
   const xScale = scaleLinear().domain([0, 100]).range([xStart, xEnd]);
   const yScale = scaleLinear().domain([0, 100]).range([0, height]);
@@ -87,7 +90,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       x: xScale(95),
       y: 0,
       width: xScale(1),
-      height: yScale(33),
+      height: yScale(50) * buySellRatio,
       fill: green,
       ...performanceAttrs,
     });
@@ -111,7 +114,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       x: xScale(95),
       y: yScale(67),
       width: xScale(1),
-      height: yScale(33),
+      height: yScale(50) * buySellRatio,
       fill: red,
       ...performanceAttrs,
     });
@@ -125,6 +128,9 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
           ? startBlock.y()
           : startBlock.y() + startBlock.height() * buySellRatio;
 
+      const topMargin = side === "buy" ? 0 : 1;
+      const bottomMargin = side === "buy" ? -1 : 0;
+
       function curvePath(x1, y1, x2, y2, curvature = 0.5) {
         const dx = x2 - x1;
         const controlX1 = x1 + dx * curvature;
@@ -132,42 +138,46 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
         return `C${controlX1},${y1} ${controlX2},${y2} ${x2},${y2}`;
       }
 
-      return new Path({
-        data: [
-          `M${startBlock.x() + startBlock.width()},${startBlockY}`,
-          `L${xScale(xCurvePercentageStart)},${startBlockY}`,
-          curvePath(
-            xScale(xCurvePercentageStart),
-            startBlockY,
-            xScale(xCurvePercentageEnd),
-            endBlock.y()
-          ),
-          `L${endBlock.x()},${endBlock.y()}`,
-          `L${endBlock.x()},${endBlock.y() + endBlock.height()}`,
-          `L${xScale(xCurvePercentageEnd)},${endBlock.y() + endBlock.height()}`,
-          curvePath(
-            xScale(xCurvePercentageEnd),
-            endBlock.y() + endBlock.height(),
-            xScale(xCurvePercentageStart),
-            startBlockY +
-              startBlock.height() *
-                (side === "buy" ? buySellRatio : 1 - buySellRatio)
-          ),
-          `L${startBlock.x() + startBlock.width()},${
-            startBlockY +
+      const data = [
+        `M${startBlock.x() + startBlock.width()},${startBlockY + topMargin}`,
+        `L${xScale(xCurvePercentageStart)},${startBlockY + topMargin}`,
+        curvePath(
+          xScale(xCurvePercentageStart),
+          startBlockY + topMargin,
+          xScale(xCurvePercentageEnd),
+          endBlock.y()
+        ),
+        `L${endBlock.x()},${endBlock.y()}`,
+        `L${endBlock.x()},${endBlock.y() + endBlock.height()}`,
+        `L${xScale(xCurvePercentageEnd)},${endBlock.y() + endBlock.height()}`,
+        curvePath(
+          xScale(xCurvePercentageEnd),
+          endBlock.y() + endBlock.height(),
+          xScale(xCurvePercentageStart),
+          startBlockY +
             startBlock.height() *
-              (side === "buy" ? buySellRatio : 1 - buySellRatio)
-          }`,
-        ].join(" "),
+              (side === "buy" ? buySellRatio : 1 - buySellRatio) +
+            bottomMargin
+        ),
+        `L${startBlock.x() + startBlock.width()},${
+          startBlockY +
+          startBlock.height() *
+            (side === "buy" ? buySellRatio : 1 - buySellRatio) +
+          bottomMargin
+        }`,
+      ].join(" ");
+
+      return new Path({
+        data: data,
         fill: "#fff",
         opacity: 0.2,
         ...performanceAttrs,
       });
     }
 
-    const buyFlow = createFlowPath("buy");
+    buyFlow = createFlowPath("buy");
     layer.add(buyFlow);
-    const sellFlow = createFlowPath("sell");
+    sellFlow = createFlowPath("sell");
     layer.add(sellFlow);
 
     layer.add(ordersBlockText);
@@ -183,6 +193,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   function getOrderCoordinatesByProgress(order) {
     const startBlock = ordersBlock;
     const endBlock = order.side === "buy" ? buyOrdersBlock : sellOrdersBlock;
+    const progress = order.progress * 100;
 
     const startBlockY =
       order.side === "buy"
@@ -191,34 +202,20 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
 
     const startY = startBlockY + (startBlock.height() * order.yPosition) / 100;
 
-    // First segment: straight line from start to curve start
-    if (order.progress <= xCurvePercentageStart) {
-      if (Number.isNaN(startY)) {
-        throw new Error(
-          `y start is NaN: ${
-            order.yPosition
-          }, ${startBlockY}, ${startBlock.height()}`
-        );
-      }
+    if (progress <= xCurvePercentageStart) {
+      // First segment: straight line from start to curve start
       return {
-        x: xScale(order.progress * 100),
+        x: order.xScale(progress),
         y: startY,
       };
+    } else if (progress >= xCurvePercentageEnd) {
       // last segment: straight line from curve end to end
-    } else if (order.progress >= xCurvePercentageEnd) {
-      if (
-        Number.isNaN(endBlock.y() + (endBlock.height() * order.yPosition) / 100)
-      ) {
-        throw new Error("y end is NaN");
-      }
-
       return {
-        x: xScale(order.progress * 100),
+        x: order.xScale(progress),
         y: endBlock.y() + (endBlock.height() * order.yPosition) / 100,
       };
-
-      // middle segment: cubic bezier curve from curve start to curve end
     } else {
+      // middle segment: cubic bezier curve from curve start to curve end
       const controlY1 = startY;
       const controlY2 =
         endBlock.y() + (endBlock.height() * order.yPosition) / 100;
@@ -226,17 +223,13 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       const t = order.progress;
       const oneMinusT = 1 - t;
 
-      const x = xScale(order.progress * 100);
+      const x = order.xScale(order.progress * 100);
 
       const y =
         Math.pow(oneMinusT, 3) * startY +
         3 * Math.pow(oneMinusT, 2) * t * controlY1 +
         3 * oneMinusT * Math.pow(t, 2) * controlY2 +
         Math.pow(t, 3) * controlY2;
-
-      if (Number.isNaN(y)) {
-        throw new Error("y is NaN");
-      }
 
       return { x, y };
     }
@@ -252,8 +245,6 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
         order.progress = 1 / animationTicks;
         order.yPosition = Math.floor(Math.random() * 100);
 
-        // startBlock.y() + startBlock.height() * buySellRatio;
-
         order.node = new Rect({
           x: xScale(0),
           y:
@@ -266,28 +257,20 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
                   100,
           width: sizeScale(order.volume),
           height: 8,
-          fill: blue,
+          fill: order.side === "buy" ? green : red,
           ...performanceAttrs,
         });
 
-        layer.add(order.node);
+        order.xScale = scaleLinear()
+          .domain([0, 100])
+          .range([xScale(0), xScale(100) - order.node.width()]);
 
-        if (order.side === "buy") {
-          buyVolume += order.volume;
-        } else {
-          sellVolume += order.volume;
-        }
+        layer.add(order.node);
 
         // order.tween = new Tween({
         //   node: order.node,
+        //   duration: 500,
         //   fill: order.side === "buy" ? green : red,
-        //   onUpdate: function (frame) {
-        //     console.log("TCL: renderNextTick -> frame", frame);
-        //     // const t = frame; // 0 → 1
-        //     // const pos = properties.getPointAtLength(t * pathTotalLength);
-        //     // order.node.position(pos);
-        //     // layer.batchDraw();
-        //   },
         //   easing: Easings.Linear,
         // });
       }
@@ -315,10 +298,19 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
         delete order.node;
         // delete order.tween;
       }
+
+      if (order.side === "buy") {
+        buyVolume += order.volume;
+      } else {
+        sellVolume += order.volume;
+      }
     });
 
     buySellRatio =
       buyVolume + sellVolume > 0 ? buyVolume / (buyVolume + sellVolume) : 0.5;
+
+    // buyOrdersBlock.setHeight(yScale(67) * buySellRatio);
+    // sellOrdersBlock.setHeight(yScale(67) * (1 - buySellRatio));
 
     layer.draw();
   }
@@ -326,11 +318,9 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   function animate() {
     renderNextTick();
 
-    requestAnimationFrame(() => {
-      if (isRunning) {
-        animate();
-      }
-    });
+    if (isRunning) {
+      requestAnimationFrame(animate);
+    }
   }
 
   return {
