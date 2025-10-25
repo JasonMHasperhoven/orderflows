@@ -1,10 +1,9 @@
 import Konva from "konva";
 import { scaleLinear } from "d3-scale";
-import { dispatch as d3Dispatch } from "d3-dispatch";
-const { Stage, Layer, Rect, Text, Circle, Tween, Easings, Path } = Konva;
+const { Stage, Layer, Rect, Text, Tween, Easings, Path } = Konva;
 
 function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
-  // config
+  // #region config
   const blue = "#61dafb";
   const green = "#24C1B0";
   const red = "#FF5F7F";
@@ -14,12 +13,19 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   const xEnd = width - textsPadding;
   const xCurvePercentageStart = 20;
   const xCurvePercentageEnd = 80;
+  const performanceAttrs = {
+    perfectDrawEnabled: false,
+    listening: false,
+    preventDefault: false,
+  };
   // const blockHeightPercentage = 33; // 33% of the height
+  // #endregion
 
-  const buySellRatio = 0.7;
-
-  // instance vars
+  // #region instance vars
   let layer;
+  let ordersBlock;
+  let buyOrdersBlock;
+  let sellOrdersBlock;
   // scales so that we can render in percentages from 0 to 100
   const xScale = scaleLinear().domain([0, 100]).range([xStart, xEnd]);
   const yScale = scaleLinear().domain([0, 100]).range([0, height]);
@@ -27,44 +33,8 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
 
   const orders = [];
   let isRunning = true;
-  const dispatch = d3Dispatch("init");
-
-  function updateOrderState() {
-    orders.forEach((order) => {
-      if (order.animationState === "entering") {
-        order.progress = 1 / animationTicks;
-        order.animationState = "animating";
-
-        order.node = new Rect({
-          x: xScale(0),
-          y: yScale(33),
-          width: sizeScale(order.volume),
-          height: 8,
-          fill: blue,
-        });
-
-        order.tween = new Tween({
-          node: order.node,
-          x: xScale(100),
-          y: order.side === "buy" ? yScale(33) : yScale(67),
-          fill: order.side === "buy" ? green : red,
-          easing: Easings.EaseIn,
-        });
-
-        layer.add(order.node);
-      }
-      if (order.animationState === "animating") {
-        order.progress += 1 / animationTicks;
-        if (order.progress >= 1) {
-          order.progress = 1;
-          order.animationState = "completing";
-        }
-      }
-      if (order.animationState === "completing") {
-        order.animationState = "completed";
-      }
-    });
-  }
+  let buySellRatio = 0.5;
+  // #endregion
 
   function init() {
     const stage = new Stage({
@@ -81,6 +51,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       text: "Orders",
       fontSize: 14,
       fill: "#fff",
+      ...performanceAttrs,
     });
 
     ordersBlockText.rotate(-90);
@@ -88,12 +59,13 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       y: yScale(50) + ordersBlockText.getTextWidth() / 2,
     });
 
-    const ordersBlock = new Rect({
+    ordersBlock = new Rect({
       x: xScale(0),
       y: yScale(33),
       width: xScale(1),
       height: yScale(33),
       fill: blue,
+      ...performanceAttrs,
     });
 
     const buyOrdersBlockText = new Text({
@@ -102,6 +74,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       text: "Buys",
       fontSize: 14,
       fill: "#fff",
+      ...performanceAttrs,
     });
 
     buyOrdersBlockText.rotate(90);
@@ -110,12 +83,13 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       y: yScale(33) / 2 - buyOrdersBlockText.getTextWidth() / 2,
     });
 
-    const buyOrdersBlock = new Rect({
+    buyOrdersBlock = new Rect({
       x: xScale(95),
       y: 0,
       width: xScale(1),
       height: yScale(33),
       fill: green,
+      ...performanceAttrs,
     });
 
     const sellOrdersBlockText = new Text({
@@ -124,6 +98,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       text: "Sells",
       fontSize: 14,
       fill: "#fff",
+      ...performanceAttrs,
     });
 
     sellOrdersBlockText.rotate(90);
@@ -132,15 +107,16 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       y: yScale(67) + yScale(33) / 2 - sellOrdersBlockText.getTextWidth() / 2,
     });
 
-    const sellOrdersBlock = new Rect({
+    sellOrdersBlock = new Rect({
       x: xScale(95),
       y: yScale(67),
       width: xScale(1),
       height: yScale(33),
       fill: red,
+      ...performanceAttrs,
     });
 
-    function createFlowPath(side = "buy", buySellRatio = 0.5) {
+    function createFlowPath(side = "buy") {
       const startBlock = ordersBlock;
       const endBlock = side === "buy" ? buyOrdersBlock : sellOrdersBlock;
 
@@ -185,12 +161,13 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
         ].join(" "),
         fill: "#fff",
         opacity: 0.2,
+        ...performanceAttrs,
       });
     }
 
-    const buyFlow = createFlowPath("buy", buySellRatio);
+    const buyFlow = createFlowPath("buy");
     layer.add(buyFlow);
-    const sellFlow = createFlowPath("sell", buySellRatio);
+    const sellFlow = createFlowPath("sell");
     layer.add(sellFlow);
 
     layer.add(ordersBlockText);
@@ -200,28 +177,154 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     layer.add(sellOrdersBlockText);
     layer.add(sellOrdersBlock);
     stage.add(layer);
-
-    dispatch.call("init");
   }
 
-  function render() {
+  // Define the path calculation function inside init to access block variables
+  function getOrderCoordinatesByProgress(order) {
+    const startBlock = ordersBlock;
+    const endBlock = order.side === "buy" ? buyOrdersBlock : sellOrdersBlock;
+
+    const startBlockY =
+      order.side === "buy"
+        ? startBlock.y()
+        : startBlock.y() + startBlock.height() * buySellRatio;
+
+    const startY = startBlockY + (startBlock.height() * order.yPosition) / 100;
+
+    // First segment: straight line from start to curve start
+    if (order.progress <= xCurvePercentageStart) {
+      if (Number.isNaN(startY)) {
+        throw new Error(
+          `y start is NaN: ${
+            order.yPosition
+          }, ${startBlockY}, ${startBlock.height()}`
+        );
+      }
+      return {
+        x: xScale(order.progress * 100),
+        y: startY,
+      };
+      // last segment: straight line from curve end to end
+    } else if (order.progress >= xCurvePercentageEnd) {
+      if (
+        Number.isNaN(endBlock.y() + (endBlock.height() * order.yPosition) / 100)
+      ) {
+        throw new Error("y end is NaN");
+      }
+
+      return {
+        x: xScale(order.progress * 100),
+        y: endBlock.y() + (endBlock.height() * order.yPosition) / 100,
+      };
+
+      // middle segment: cubic bezier curve from curve start to curve end
+    } else {
+      const controlY1 = startY;
+      const controlY2 =
+        endBlock.y() + (endBlock.height() * order.yPosition) / 100;
+
+      const t = order.progress;
+      const oneMinusT = 1 - t;
+
+      const x = xScale(order.progress * 100);
+
+      const y =
+        Math.pow(oneMinusT, 3) * startY +
+        3 * Math.pow(oneMinusT, 2) * t * controlY1 +
+        3 * oneMinusT * Math.pow(t, 2) * controlY2 +
+        Math.pow(t, 3) * controlY2;
+
+      if (Number.isNaN(y)) {
+        throw new Error("y is NaN");
+      }
+
+      return { x, y };
+    }
+  }
+
+  function renderNextTick() {
+    let buyVolume = 0;
+    let sellVolume = 0;
+
     orders.forEach((order) => {
+      if (order.animationState === "entering") {
+        order.animationState = "animating";
+        order.progress = 1 / animationTicks;
+        order.yPosition = Math.floor(Math.random() * 100);
+
+        // startBlock.y() + startBlock.height() * buySellRatio;
+
+        order.node = new Rect({
+          x: xScale(0),
+          y:
+            order.side === "buy"
+              ? ordersBlock.y() +
+                (ordersBlock.height() * buySellRatio * order.yPosition) / 100
+              : ordersBlock.y() +
+                ordersBlock.height() * buySellRatio +
+                (ordersBlock.height() * (1 - buySellRatio) * order.yPosition) /
+                  100,
+          width: sizeScale(order.volume),
+          height: 8,
+          fill: blue,
+          ...performanceAttrs,
+        });
+
+        layer.add(order.node);
+
+        if (order.side === "buy") {
+          buyVolume += order.volume;
+        } else {
+          sellVolume += order.volume;
+        }
+
+        // order.tween = new Tween({
+        //   node: order.node,
+        //   fill: order.side === "buy" ? green : red,
+        //   onUpdate: function (frame) {
+        //     console.log("TCL: renderNextTick -> frame", frame);
+        //     // const t = frame; // 0 → 1
+        //     // const pos = properties.getPointAtLength(t * pathTotalLength);
+        //     // order.node.position(pos);
+        //     // layer.batchDraw();
+        //   },
+        //   easing: Easings.Linear,
+        // });
+      }
+
       if (order.animationState === "animating") {
-        order.tween.seek(order.progress);
-        layer.draw();
+        order.progress += 1 / animationTicks;
+        if (order.progress >= 1) {
+          order.progress = 1;
+          order.animationState = "completing";
+        }
+
+        // Update position along the flow path
+        const pos = getOrderCoordinatesByProgress(order);
+        order.node.setPosition(pos);
+        // layer.batchDraw();
+
+        // Update color animation
+        // order.tween.seek(order.progress);
       }
+
       if (order.animationState === "completing") {
-        order.tween.destroy();
-        layer.remove(order.node);
+        order.animationState = "completed";
+        order.node.destroy();
+        // order.tween.destroy();
+        delete order.node;
+        // delete order.tween;
       }
-      layer.draw();
     });
+
+    buySellRatio =
+      buyVolume + sellVolume > 0 ? buyVolume / (buyVolume + sellVolume) : 0.5;
+
+    layer.draw();
   }
 
   function animate() {
-    updateOrderState();
-    render();
-    console.log(orders);
+    renderNextTick();
 
     requestAnimationFrame(() => {
       if (isRunning) {
@@ -232,7 +335,6 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
 
   return {
     init,
-    dispatch,
     /**
      * add order to the diagram
      * @param {{
@@ -245,7 +347,6 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
      * }} order
      */
     addOrder: (order) => {
-      console.log("TCL: OrderFlowDiagram -> order", order);
       orders.push({ ...order });
     },
     run: () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BehaviorSubject,
   Subject,
@@ -36,6 +36,7 @@ export const useOrderStream = ({ onOrderReceived, enabled = true }) => {
   const streamControl = useRef(new BehaviorSubject(enabled));
   const orderEvents = useRef(new Subject());
   const onOrderReceivedRef = useRef(null);
+  const [isStreaming, setIsStreaming] = useState(enabled);
 
   useEffect(() => {
     if (!onOrderReceivedRef?.current) return;
@@ -62,8 +63,14 @@ export const useOrderStream = ({ onOrderReceived, enabled = true }) => {
       )
       .subscribe();
 
-    return () => subscription.unsubscribe();
-  }, [onOrderReceived]);
+    // Subscribe to stream control changes to update isStreaming state
+    const controlSubscription = streamControl.current.subscribe(setIsStreaming);
+
+    return () => {
+      subscription.unsubscribe();
+      controlSubscription.unsubscribe();
+    };
+  }, []);
 
   // Keep the latest callback in ref to avoid closure issues
   useEffect(() => {
@@ -74,7 +81,7 @@ export const useOrderStream = ({ onOrderReceived, enabled = true }) => {
 
   return {
     stream: orderEvents.current.asObservable(),
-    isStreaming: streamControl.current.getValue(),
+    isStreaming,
     pauseStream: () => streamControl.current.next(false),
     resumeStream: () => streamControl.current.next(true),
   };

@@ -7,36 +7,26 @@ import { OrderFlowDiagram } from "./OrderFlowDiagram";
 export const Canvas = () => {
   const id = useId();
   const orderFlowDiagram = useRef(new OrderFlowDiagram(id));
-  // const [isStreamingEnabled, setIsStreamingEnabled] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const { stream, isStreaming, pauseStream, resumeStream } = useOrderStream({
-    onOrderReceived: (order) => {
-      orderFlowDiagram.current.addOrder(order);
-    },
-    // enabled: isStreamingEnabled,
+  const { isStreaming, pauseStream, resumeStream } = useOrderStream({
+    onOrderReceived: orderFlowDiagram.current.addOrder,
   });
-  console.log("TCL: Canvas -> isStreaming", isStreaming);
 
   useEffect(() => {
     orderFlowDiagram.current.init();
-    orderFlowDiagram.current.dispatch.on("init", () => {
+    setIsInitialized(true);
+  }, [id]);
+
+  useEffect(() => {
+    if (isInitialized) {
       if (isStreaming) {
         orderFlowDiagram.current.run();
       } else {
         orderFlowDiagram.current.pause();
       }
-    });
-  }, [id]);
-
-  // useEffect(() => {
-  //   orderFlowDiagram.current.dispatch.on("init", () => {
-  //     if (isStreaming) {
-  //       orderFlowDiagram.current.run();
-  //     } else {
-  //       orderFlowDiagram.current.pause();
-  //     }
-  //   });
-  // }, [isStreaming]);
+    }
+  }, [isInitialized, isStreaming]);
 
   return (
     <div>
