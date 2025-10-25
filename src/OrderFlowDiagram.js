@@ -21,6 +21,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   const flowGap = 1;
   const blockWidth = 20;
   const buySellBlocksGapPercentage = 20;
+  const orderYClamp = [20, 80];
   // #endregion
 
   // #region instance vars
@@ -35,11 +36,9 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
 
   // scales so that we can render in percentages from 0 to 100
   const xScale = scaleLinear().domain([0, 100]).range([xStart, xEnd]);
-  console.log("TCL: OrderFlowDiagram -> xEnd", xEnd);
-  console.log("TCL: OrderFlowDiagram -> xStart", xStart);
   const yScale = scaleLinear().domain([0, 100]).range([0, height]);
 
-  // scale the volume to the size of the block
+  // scale the volume to the width of the order
   const sizeScale = scaleLinear().domain([1, 2500]).range([1, 50]);
 
   const orders = [];
@@ -214,39 +213,43 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     const progress = order.progress * 100;
 
     const startBlockY =
-      order.side === "buy"
+      order.side === "sell"
         ? startBlock.y()
         : startBlock.y() + startBlock.height() * sellBuyRatio;
 
-    const startY = startBlockY + (startBlock.height() * order.yPosition) / 100;
+    const startY =
+      startBlockY +
+      (startBlock.height() *
+        (order.side === "sell" ? sellBuyRatio : 1 - sellBuyRatio) *
+        order.yPosition) /
+        100;
 
+    const x = order.xScale(order.progress * 100);
     if (progress <= xCurvePercentageStart) {
       // First segment: straight line from start to curve start
       return {
-        x: order.xScale(progress),
+        x,
         y: startY,
       };
     } else if (progress >= xCurvePercentageEnd) {
       // last segment: straight line from curve end to end
       return {
-        x: order.xScale(progress),
+        x,
         y: endBlock.y() + (endBlock.height() * order.yPosition) / 100,
       };
     } else {
-      // middle segment: cubic bezier curve from curve start to curve end
+      // middle segment: cubic bezier from curve start to curve end
       const controlY1 = startY;
       const controlY2 =
         endBlock.y() + (endBlock.height() * order.yPosition) / 100;
 
       // Normalize progress to the curve segment (0 to 1 within the curve)
-      const curveStart = xCurvePercentageStart / 100; // e.g., 0.2
-      const curveEnd = xCurvePercentageEnd / 100; // e.g., 0.8
-      const curveLength = curveEnd - curveStart; // e.g., 0.6
+      const curveStart = xCurvePercentageStart / 100;
+      const curveEnd = xCurvePercentageEnd / 100;
+      const curveLength = curveEnd - curveStart;
 
-      const t = (order.progress - curveStart) / curveLength; // This gives 0 to 1
+      const t = (order.progress - curveStart) / curveLength;
       const oneMinusT = 1 - t;
-
-      const x = order.xScale(order.progress * 100);
 
       const y =
         Math.pow(oneMinusT, 3) * startY +
@@ -263,7 +266,11 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
     order.progress = 1 / animationTicks;
 
     // create random y position within the flow
-    order.yPosition = Math.floor(Math.random() * 100);
+    order.yPosition = Math.min(
+      Math.max(Math.floor(Math.random() * 100), orderYClamp[0]),
+      orderYClamp[1]
+    );
+    console.log("TCL: initializeOrderNode -> order.yPosition", order.yPosition);
 
     order.node = new Rect({
       x: xScale(0),
@@ -305,12 +312,6 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   }
 
   function updateBlocksVolume(buyVolume, sellVolume) {
-    // buyOrdersBlock.to({
-    //   height: yScale(100 - buySellBlocksGapPercentage) * sellBuyRatio,
-    //   duration: 0.1,
-    //   easing: Easings.EaseInOut,
-    // });
-
     sellOrdersBlock.height(
       yScale(100 - buySellBlocksGapPercentage) * sellBuyRatio
     );
