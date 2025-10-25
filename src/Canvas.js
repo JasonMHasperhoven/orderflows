@@ -7,20 +7,18 @@ import { OrderFlowDiagram } from "./OrderFlowDiagram";
 export const Canvas = () => {
   const id = useId();
   const orderFlowDiagram = useRef(new OrderFlowDiagram(id));
-  const [isStreamingEnabled, setIsStreamingEnabled] = useState(true);
+  // const [isStreamingEnabled, setIsStreamingEnabled] = useState(true);
 
   const { stream, isStreaming, pauseStream, resumeStream } = useOrderStream({
     onOrderReceived: (order) => {
       orderFlowDiagram.current.addOrder(order);
     },
-    enabled: isStreamingEnabled,
+    // enabled: isStreamingEnabled,
   });
+  console.log("TCL: Canvas -> isStreaming", isStreaming);
 
   useEffect(() => {
     orderFlowDiagram.current.init();
-  }, [id]);
-
-  useEffect(() => {
     orderFlowDiagram.current.dispatch.on("init", () => {
       if (isStreaming) {
         orderFlowDiagram.current.run();
@@ -28,13 +26,23 @@ export const Canvas = () => {
         orderFlowDiagram.current.pause();
       }
     });
-  }, [isStreaming]);
+  }, [id]);
+
+  // useEffect(() => {
+  //   orderFlowDiagram.current.dispatch.on("init", () => {
+  //     if (isStreaming) {
+  //       orderFlowDiagram.current.run();
+  //     } else {
+  //       orderFlowDiagram.current.pause();
+  //     }
+  //   });
+  // }, [isStreaming]);
 
   return (
     <div>
       <div className="Canvas-container">
-        <Button onClick={() => setIsStreamingEnabled(!isStreamingEnabled)}>
-          {isStreamingEnabled ? "Pause Streaming" : "Start Streaming"}
+        <Button onClick={() => (isStreaming ? pauseStream() : resumeStream())}>
+          {isStreaming ? "Pause Streaming" : "Start Streaming"}
         </Button>
       </div>
       <div id={id} />
