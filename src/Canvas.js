@@ -1,9 +1,9 @@
-import { useEffect, useRef, useId, useState, useCallback } from "react";
+import { useEffect, useRef, useId, useState } from "react";
 import { useOrderStream } from "./useOrderStream";
 import { Button } from "./Button";
-import "./Canvas.css";
 import { OrderFlowDiagram } from "./OrderFlowDiagram";
 import { Slider } from "./Slider";
+import "./Canvas.css";
 
 export const Canvas = () => {
   const id = useId();

@@ -1,10 +1,10 @@
 import Konva from "konva";
 import { scaleLinear } from "d3-scale";
-const { Stage, Layer, Rect, Text, Tween, Easings, Path } = Konva;
+const { Stage, Layer, Rect, Text, Path } = Konva;
 
 function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   // #region config
-  const blue = "#61dafb";
+  const blue = "#61DAFB";
   const green = "#24C1B0";
   const red = "#FF5F7F";
   const animationTicks = 300;
@@ -34,7 +34,7 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
   let buyFlow;
   let sellFlow;
 
-  // scales so that we can render in percentages from 0 to 100
+  // axis scales, based on percentages from 0 to 100
   const xScale = scaleLinear().domain([0, 100]).range([xStart, xEnd]);
   const yScale = scaleLinear().domain([0, 100]).range([0, height]);
 
@@ -271,7 +271,6 @@ function OrderFlowDiagram(id, { width = 600, height = 300 } = {}) {
       Math.max(Math.floor(Math.random() * 100), orderYClamp[0]),
       orderYClamp[1]
     );
-    console.log("TCL: initializeOrderNode -> order.yPosition", order.yPosition);
 
     order.node = new Rect({
       x: xScale(0),

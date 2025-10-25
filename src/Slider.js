@@ -12,7 +12,6 @@ export const Slider = ({ value, onInput }) => {
   const scale = scaleRef.current;
 
   const handleMouseMove = (event) => {
-    /* eslint-disable no-param-reassign */
     if (deltaRef.current) {
       const isTouch = event.type === "touchmove";
       deltaRef.current.deltaX =

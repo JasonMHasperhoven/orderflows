@@ -1,70 +1,25 @@
-# Getting Started with Create React App
+# Assessment Notes
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This was a very unique challenge that I enjoyed a lot (not the typical react + state management). I have experience with konva and d3-scale so I have both here.
 
-## Available Scripts
+### A couple of bulletpoints:
 
-In the project directory, you can run:
+- OrderFlowDiagram uses SOLID principle (js-style)
+- OrderFlowDiagram does mutations, which we generally try to avoid in js, but I think it's appropriate here to make the code more simple (python-like).
+- Similarly, all the animation logic is done in one loop (orders.forEach) for performance reasons (it hurts readability somewhat).
+- I use d3-scale quite a lot here (for the x- and y-axis, but also for the history filter and the slider), because it handles interpolation (from % to px, and % to timestamp) very well.
+- The orders animate from the starting (orders) block to their respective side's ending block.
+- For that, I built on-top of the existing props (progress and animationState provided by useOrderStream)
+- The block and flow sizes update in real-time depending on the total accumulated volume
+- The slider is custom built, also to demonstrate some lesser known options like { once: true } in document.body.addEventListener().
+- Slider instance vars are contained by the use of useRefs()
+- useSize was a copy-paste from another project
 
-### `npm start`
+## What could be improved?
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- The project uses plain css. An improvement would be to use vars for theme/color and spacing for consistency.
+- The orders.forEach() loop could be replaced with a while loop (lodash also uses this and is the most performant afaik).
+- There's no typesafety at the moment. Enhancing it with typescript would be welcome.
+- Animating the block size & flows. Blocks can be done easily with konva: new Tween(), however the flows require additional code.
+- Constants for the order sides ("buy", "sell"), as right now they're string.
+- The canvas is a static size and could be made responsive.
