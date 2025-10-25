@@ -1,3 +1,5 @@
+![Order Flow Diagram](https://github.com/JasonMHasperhoven/orderflows/blob/main/public/orderflow.png)
+
 # Assessment Notes
 
 This was a very unique challenge that I enjoyed a lot (not the typical react + state management). I have experience with konva and d3-scale so I have both here.
